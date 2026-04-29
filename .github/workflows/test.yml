@@ -1,0 +1,194 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+  repository_dispatch:
+    types: [monorepo-updated]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: owlmetry_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout CLI
+        uses: actions/checkout@v5
+        with:
+          path: cli
+
+      - name: Checkout main repo
+        uses: actions/checkout@v5
+        with:
+          repository: owlmetry/owlmetry
+          path: main
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.33.0 --activate
+
+      - name: Get pnpm store path
+        id: pnpm-store
+        working-directory: main
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('main/pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      - name: Install and build monorepo
+        working-directory: main
+        env:
+          PGUSER: postgres
+          PGHOST: localhost
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Seed test database
+        working-directory: main/apps/server
+        env:
+          PGUSER: postgres
+          PGHOST: localhost
+          DATABASE_URL: postgres://postgres@localhost:5432/owlmetry_test
+        run: ./node_modules/.bin/tsx ../../scripts/seed-test-db.mts
+
+      - name: Mint full-permission CLI agent key
+        env:
+          PGUSER: postgres
+          PGHOST: localhost
+          PGDATABASE: owlmetry_test
+          TEST_CLI_AGENT_KEY: owl_agent_ffffffffffffffffffffffffffffffffffffffffffffffff
+        run: |
+          TEAM_ID=$(psql -tA -c "SELECT id FROM teams LIMIT 1")
+          OWNER_ID=$(psql -tA -c "SELECT user_id FROM team_members WHERE team_id = '$TEAM_ID' AND role = 'owner' LIMIT 1")
+          PERMS='["events:read","apps:read","apps:write","projects:read","projects:write","metrics:read","metrics:write","funnels:read","funnels:write","audit_logs:read","feedback:read","feedback:write"]'
+          EXISTING=$(psql -tA -c "SELECT id FROM api_keys WHERE secret = '$TEST_CLI_AGENT_KEY' LIMIT 1")
+          if [ -z "$EXISTING" ]; then
+            psql -tA <<SQL
+          INSERT INTO api_keys (secret, key_type, app_id, team_id, name, created_by, permissions)
+          VALUES ('$TEST_CLI_AGENT_KEY', 'agent', NULL, '$TEAM_ID', 'CLI Test Agent Key', '$OWNER_ID', '$PERMS'::jsonb);
+          SQL
+          else
+            psql -tA -c "UPDATE api_keys SET permissions = '$PERMS'::jsonb WHERE secret = '$TEST_CLI_AGENT_KEY'"
+          fi
+          APP_ID=$(psql -tA -c "SELECT id FROM apps WHERE platform = 'apple' LIMIT 1")
+          echo "TEST_TEAM_ID=$TEAM_ID" >> "$GITHUB_ENV"
+          echo "TEST_APP_ID=$APP_ID" >> "$GITHUB_ENV"
+
+      - name: Start test server (detached)
+        working-directory: main/apps/server
+        env:
+          DATABASE_URL: postgres://postgres@localhost:5432/owlmetry_test
+          PORT: "4114"
+          JWT_SECRET: test-secret
+          HOST: 127.0.0.1
+          API_PUBLIC_URL: http://127.0.0.1:4114
+        run: |
+          nohup ./node_modules/.bin/tsx src/index.ts > /tmp/server.log 2>&1 < /dev/null &
+          SERVER_PID=$!
+          echo "$SERVER_PID" > /tmp/server.pid
+          disown "$SERVER_PID"
+          for i in $(seq 1 60); do
+            if curl -sf "http://127.0.0.1:4114/health" > /dev/null 2>&1; then
+              echo "Server ready (pid $(cat /tmp/server.pid))"
+              exit 0
+            fi
+            sleep 0.5
+          done
+          echo "Server failed to start"
+          cat /tmp/server.log
+          exit 1
+
+      - name: Confirm server still up after step boundary
+        run: |
+          if ! kill -0 "$(cat /tmp/server.pid)" 2>/dev/null; then
+            echo "Server PID $(cat /tmp/server.pid) is gone after step boundary"
+            cat /tmp/server.log
+            exit 1
+          fi
+          curl -sf "http://127.0.0.1:4114/health" | head -c 500
+          echo
+          echo "Server healthy ✓"
+
+      - name: Ingest sample events
+        env:
+          TEST_CLIENT_KEY: owl_client_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        run: |
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          curl -sf -X POST "http://127.0.0.1:4114/v1/ingest" \
+            -H "Authorization: Bearer $TEST_CLIENT_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"bundle_id\":\"com.owlmetry.test\",\"events\":[
+              {\"message\":\"CLI test event info\",\"level\":\"info\",\"timestamp\":\"$TIMESTAMP\",\"session_id\":\"00000000-0000-0000-0000-000000000099\"},
+              {\"message\":\"CLI test event error\",\"level\":\"error\",\"timestamp\":\"$TIMESTAMP\",\"session_id\":\"00000000-0000-0000-0000-000000000099\"}
+            ]}" > /dev/null
+
+      - name: Install CLI dependencies
+        working-directory: cli
+        run: npm ci
+
+      - name: Run CLI integration tests
+        working-directory: cli
+        timeout-minutes: 10
+        env:
+          OWLMETRY_TEST_ENDPOINT: http://127.0.0.1:4114
+          OWLMETRY_TEST_AGENT_KEY: owl_agent_ffffffffffffffffffffffffffffffffffffffffffffffff
+          OWLMETRY_TEST_TEAM_ID: ${{ env.TEST_TEAM_ID }}
+          OWLMETRY_TEST_APP_ID: ${{ env.TEST_APP_ID }}
+        run: npx vitest run src/__tests__/integration/ --test-timeout 15000
+
+      - name: Stop test server
+        if: always()
+        run: |
+          if [ -f /tmp/server.pid ]; then
+            kill "$(cat /tmp/server.pid)" 2>/dev/null || true
+          fi
+
+      - name: Upload server log on failure
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: server-log
+          path: /tmp/server.log

@@ -1,0 +1,49 @@
+{
+  "name": "@owlmetry/cli",
+  "version": "0.1.21",
+  "description": "Owlmetry CLI — manage projects, apps, metrics, funnels, and events from the terminal.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/owlmetry/owlmetry-cli.git"
+  },
+  "homepage": "https://owlmetry.com",
+  "bugs": "https://github.com/owlmetry/owlmetry-cli/issues",
+  "keywords": [
+    "owlmetry",
+    "analytics",
+    "metrics",
+    "funnels",
+    "mobile",
+    "observability",
+    "cli"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "owlmetry": "dist/index.cjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:integration": "bash scripts/test-integration.sh",
+    "sync-shared": "tsx scripts/sync-shared.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^25.4.0",
+    "chalk": "^5.4.1",
+    "cli-table3": "^0.6.5",
+    "commander": "^13.1.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.18"
+  }
+}
