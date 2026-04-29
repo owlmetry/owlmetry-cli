@@ -1,17 +1,15 @@
 name: Auto-tag release
 
-# DISABLED until bootstrap is complete and v0.1.22 has been manually published.
-# To enable: add the `push` trigger block below alongside `workflow_dispatch`.
-#
-#   push:
-#     branches: [main]
-#     paths-ignore:
-#       - 'Examples/**'
-#       - '**.md'
-#       - '.gitignore'
-#
+# Triggered by pushes to main. paths-ignore skips Examples/docs/gitignore-only
+# pushes — note this also skips pushes that change zero paths (empty commits).
 # The bot's bump commit uses [skip ci] so this workflow doesn't loop on itself.
 on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'Examples/**'
+      - '**.md'
+      - '.gitignore'
   workflow_dispatch:
 
 concurrency:
