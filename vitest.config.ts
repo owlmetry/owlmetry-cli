@@ -4,10 +4,6 @@ export default defineConfig({
   test: {
     globals: true,
     testTimeout: 5000,
-    exclude: [
-      "dist/**",
-      "node_modules/**",
-      "src/__tests__/integration/**",
-    ],
+    exclude: ["dist/**", "node_modules/**"],
   },
 });
