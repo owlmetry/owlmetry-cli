@@ -38,6 +38,16 @@ owlmetry skills
 
 for the install snippet (`/plugin marketplace add` + `/plugin install`).
 
+## Contributing
+
+Relative imports use `.js` extensions (e.g. `import { x } from "./shared/index.js"`) to satisfy ESM resolution under `module: ESNext` / `moduleResolution: bundler`. Preserve the extension when adding or editing files.
+
+`src/shared/` is **vendored** from the monorepo's `packages/shared/` and every file is marked `AUTO-GENERATED` — don't edit by hand. Refresh against a sibling `../owlmetry/` checkout with:
+
+```bash
+npm run sync-shared
+```
+
 ## Links
 
 - [Website](https://owlmetry.com)

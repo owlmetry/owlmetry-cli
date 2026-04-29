@@ -33,8 +33,7 @@
     "dev": "tsx src/index.ts",
     "test": "vitest run",
     "test:integration": "bash scripts/test-integration.sh",
-    "sync-shared": "tsx scripts/sync-shared.ts",
-    "prepublishOnly": "npm run build"
+    "sync-shared": "tsx scripts/sync-shared.ts"
   },
   "devDependencies": {
     "@types/node": "^25.4.0",
