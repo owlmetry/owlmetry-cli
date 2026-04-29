@@ -169,6 +169,10 @@ jobs:
         working-directory: cli
         run: npm ci
 
+      - name: Build CLI bundle
+        working-directory: cli
+        run: npm run build
+
       - name: Run CLI integration tests
         working-directory: cli
         timeout-minutes: 10
