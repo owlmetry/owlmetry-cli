@@ -14,6 +14,7 @@ function statusBadge(status: string): string {
     case "in_progress": return chalk.blue("🔧 in_progress");
     case "resolved": return chalk.green("✅ resolved");
     case "silenced": return chalk.gray("🔇 silenced");
+    case "snoozed": return chalk.yellow("💤 snoozed");
     case "regressed": return chalk.yellow("🔄 regressed");
     default: return status;
   }
@@ -209,7 +210,7 @@ issuesCommand
 
 issuesCommand
   .command("silence <issueId>")
-  .description("Silence an issue (stop notifications)")
+  .description("Silence an issue (stop notifications; stays silenced even if it recurs — use 'snooze' instead for one-offs)")
   .requiredOption("--project-id <id>", "Project ID")
   .action(async (issueId: string, opts: { projectId: string }, cmd) => {
     const { client, globals } = createClient(cmd);
@@ -218,8 +219,18 @@ issuesCommand
   });
 
 issuesCommand
+  .command("snooze <issueId>")
+  .description("Snooze an issue — like silence but auto-reopens to 'new' on the next occurrence (use for suspected one-offs)")
+  .requiredOption("--project-id <id>", "Project ID")
+  .action(async (issueId: string, opts: { projectId: string }, cmd) => {
+    const { client, globals } = createClient(cmd);
+    const result = await client.updateIssue(opts.projectId, issueId, { status: "snoozed" });
+    output(globals.format as OutputFormat, result, () => chalk.green("Issue snoozed (will auto-reopen on next occurrence)"));
+  });
+
+issuesCommand
   .command("reopen <issueId>")
-  .description("Reopen a resolved or silenced issue")
+  .description("Reopen a resolved, silenced, or snoozed issue")
   .requiredOption("--project-id <id>", "Project ID")
   .action(async (issueId: string, opts: { projectId: string }, cmd) => {
     const { client, globals } = createClient(cmd);
