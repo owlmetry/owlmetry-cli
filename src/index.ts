@@ -19,6 +19,7 @@ import { issuesCommand } from "./commands/issues.js";
 import { feedbackCommand } from "./commands/feedback.js";
 import { reviewsCommand } from "./commands/reviews.js";
 import { ratingsCommand } from "./commands/ratings.js";
+import { adsCommand } from "./commands/ads.js";
 import { attachmentsCommand } from "./commands/attachments.js";
 import { notificationsCommand } from "./commands/notifications.js";
 
@@ -57,6 +58,7 @@ program.addCommand(issuesCommand);
 program.addCommand(feedbackCommand);
 program.addCommand(reviewsCommand);
 program.addCommand(ratingsCommand);
+program.addCommand(adsCommand);
 program.addCommand(attachmentsCommand);
 program.addCommand(notificationsCommand);
 

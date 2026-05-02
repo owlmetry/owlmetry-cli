@@ -42,6 +42,9 @@ import type {
   ReviewsQueryParams,
   AppRatingsResponse,
   RatingsByCountryResponse,
+  AdsCampaignsResponse,
+  AdsAdGroupsResponse,
+  AdsLeavesResponse,
   JobRunResponse,
   JobRunsQueryParams,
   JobRunsResponse,
@@ -474,6 +477,65 @@ export class OwlmetryClient {
       "POST",
       `/v1/projects/${projectId}/ratings/sync`,
     );
+  }
+
+  // Advertising insights
+  async listAdCampaigns(
+    projectId: string,
+    params: { attribution_source?: string; app_id?: string; limit?: number } = {},
+  ): Promise<AdsCampaignsResponse> {
+    const stringParams: Record<string, string | undefined> = {};
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined) stringParams[k] = String(v);
+    }
+    return this.request<AdsCampaignsResponse>(
+      "GET",
+      `/v1/projects/${projectId}/ads/campaigns`,
+      { params: stringParams },
+    );
+  }
+
+  async listAdGroups(
+    projectId: string,
+    campaignId: string,
+    params: { attribution_source?: string; app_id?: string; limit?: number } = {},
+  ): Promise<AdsAdGroupsResponse> {
+    const stringParams: Record<string, string | undefined> = {};
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined) stringParams[k] = String(v);
+    }
+    return this.request<AdsAdGroupsResponse>(
+      "GET",
+      `/v1/projects/${projectId}/ads/campaigns/${encodeURIComponent(campaignId)}/ad-groups`,
+      { params: stringParams },
+    );
+  }
+
+  async listAdLeaves(
+    projectId: string,
+    campaignId: string,
+    adGroupId: string,
+    params: { attribution_source?: string; app_id?: string; limit?: number } = {},
+  ): Promise<AdsLeavesResponse> {
+    const stringParams: Record<string, string | undefined> = {};
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined) stringParams[k] = String(v);
+    }
+    return this.request<AdsLeavesResponse>(
+      "GET",
+      `/v1/projects/${projectId}/ads/campaigns/${encodeURIComponent(campaignId)}/ad-groups/${encodeURIComponent(adGroupId)}/leaves`,
+      { params: stringParams },
+    );
+  }
+
+  async syncAds(
+    projectId: string,
+  ): Promise<{ syncing: true; revenuecat_job_run_id: string; apple_ads_job_run_id: string }> {
+    return this.request<{
+      syncing: true;
+      revenuecat_job_run_id: string;
+      apple_ads_job_run_id: string;
+    }>("POST", `/v1/projects/${projectId}/ads/sync`);
   }
 
   // Notifications
