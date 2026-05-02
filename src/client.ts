@@ -43,6 +43,7 @@ import type {
   AppRatingsResponse,
   RatingsByCountryResponse,
   AdsCampaignsResponse,
+  TeamAdsCampaignsResponse,
   AdsAdGroupsResponse,
   AdsLeavesResponse,
   JobRunResponse,
@@ -493,6 +494,19 @@ export class OwlmetryClient {
       `/v1/projects/${projectId}/ads/campaigns`,
       { params: stringParams },
     );
+  }
+
+  async listAdCampaignsAcrossTeam(
+    teamId: string,
+    params: { attribution_source?: string; limit?: number } = {},
+  ): Promise<TeamAdsCampaignsResponse> {
+    const stringParams: Record<string, string | undefined> = { team_id: teamId };
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined) stringParams[k] = String(v);
+    }
+    return this.request<TeamAdsCampaignsResponse>("GET", `/v1/ads/campaigns`, {
+      params: stringParams,
+    });
   }
 
   async listAdGroups(
