@@ -175,6 +175,57 @@ export interface AdsRow {
   paying_user_count: number;
   total_revenue_usd: number;
   arpu: number;
+  /**
+   * Lifetime spend in USD. Null when (a) no ad-network integration is
+   * connected, (b) no row in `ad_*_lifetime` matches yet, or (c) the
+   * advertising org's reporting currency isn't USD (we don't fake-convert).
+   */
+  total_spend_usd: number | null;
+  /** `total_revenue_usd / total_spend_usd`. Null when spend is null or 0. */
+  roas: number | null;
+  /** ISO date `YYYY-MM-DD` of the campaign / ad-group's start, when known. */
+  start_date: string | null;
+  /** Network-side status snapshot — e.g. "ENABLED" / "PAUSED" / "DELETED". */
+  status: string | null;
+}
+
+/**
+ * Classify a ROAS number into a render tone. Each surface (web, CLI, iOS,
+ * docs) maps the tone to its own color/style — keeps the green/amber/red
+ * thresholds consistent without exporting Tailwind classes from shared.
+ *
+ * Thresholds: ≥1.0x earns its way back (good), ≥0.5x recovers half (warn),
+ * lower is bad. Null → muted "—".
+ */
+export type RoasTone = "good" | "warn" | "bad" | "muted";
+export function roasTone(roas: number | null | undefined): RoasTone {
+  if (roas == null) return "muted";
+  if (roas >= 1) return "good";
+  if (roas >= 0.5) return "warn";
+  return "bad";
+}
+
+/** Format ROAS as `1.2x` (one decimal under 10, integer above). */
+export function formatRoasLabel(roas: number | null | undefined): string {
+  if (roas == null) return "—";
+  return `${roas.toFixed(roas < 10 ? 1 : 0)}x`;
+}
+
+/**
+ * Reduce a network-side status string to a render tone + display label, or
+ * null when the status is the "everything's fine" default that doesn't need
+ * a badge. Maps Apple Search Ads' `ENABLED|PAUSED|ON_HOLD|DELETED` today;
+ * unknown values fall through with a muted lowercase label.
+ */
+export function classifyAdStatus(
+  status: string | null | undefined,
+): { label: string; tone: "warn" | "bad" | "muted" } | null {
+  if (!status) return null;
+  const upper = status.toUpperCase();
+  if (upper === "ENABLED" || upper === "RUNNING") return null;
+  if (upper === "PAUSED" || upper === "ON_HOLD") return { label: "Paused", tone: "warn" };
+  if (upper === "DELETED") return { label: "Deleted", tone: "bad" };
+  return { label: upper.toLowerCase(), tone: "muted" };
 }
 
 export interface AdsCampaignsResponse {
@@ -183,8 +234,18 @@ export interface AdsCampaignsResponse {
   total_user_count: number;
   total_paying_user_count: number;
   total_revenue_usd: number;
+  /** SUM of visible rows' `total_spend_usd`; null when no row reported spend. */
+  total_spend_usd: number | null;
   /** Most recent `revenue_synced_at` across the project's RC-synced users; null when never synced. */
   revenue_synced_at: string | null;
+  /** Most recent `last_synced_at` across the project's `ad_*_lifetime` rows; null when never synced. */
+  ad_metrics_synced_at: string | null;
+  /**
+   * Non-null when at least one `ad_*_lifetime` row's currency isn't USD;
+   * carries the offending currency code (e.g. `"EUR"`) so the UI can render
+   * a "spend in <currency>; ROAS unavailable until USD is supported" banner.
+   */
+  currency_warning: string | null;
 }
 
 /** Campaign row from the team-scoped endpoint — same fields as `AdsRow` plus the owning project. */
@@ -198,8 +259,11 @@ export interface TeamAdsCampaignsResponse {
   total_user_count: number;
   total_paying_user_count: number;
   total_revenue_usd: number;
+  total_spend_usd: number | null;
   /** Most recent `revenue_synced_at` across every accessible project's RC-synced users; null when never synced. */
   revenue_synced_at: string | null;
+  ad_metrics_synced_at: string | null;
+  currency_warning: string | null;
 }
 
 export interface AdsAdGroupsResponse {
@@ -207,6 +271,9 @@ export interface AdsAdGroupsResponse {
   campaign_id: string;
   campaign_name: string | null;
   ad_groups: AdsRow[];
+  total_spend_usd: number | null;
+  ad_metrics_synced_at: string | null;
+  currency_warning: string | null;
 }
 
 export interface AdsLeavesResponse {

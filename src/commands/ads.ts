@@ -1,6 +1,14 @@
 import { Command, Option } from "commander";
 import chalk from "chalk";
-import { ADS_ATTRIBUTION_SOURCES, type AdsRow, type TeamAdsRow } from "../shared/index.js";
+import {
+  ADS_ATTRIBUTION_SOURCES,
+  classifyAdStatus,
+  formatRoasLabel,
+  roasTone,
+  type AdsRow,
+  type RoasTone,
+  type TeamAdsRow,
+} from "../shared/index.js";
 import { createClient } from "../config.js";
 import { output, type OutputFormat } from "../formatters/index.js";
 
@@ -16,57 +24,104 @@ function formatUsd(amount: number): string {
   return usdFormatter.format(amount);
 }
 
+function formatSpend(spend: number | null): string {
+  return spend == null ? chalk.dim("—") : formatUsd(spend);
+}
+
+const ROAS_CHALK: Record<RoasTone, (s: string) => string> = {
+  good: chalk.green,
+  warn: chalk.yellow,
+  bad: chalk.red,
+  muted: chalk.dim,
+};
+
+function formatRoas(roas: number | null): string {
+  return ROAS_CHALK[roasTone(roas)](formatRoasLabel(roas));
+}
+
+function statusBadge(status: string | null): string {
+  const c = classifyAdStatus(status);
+  if (!c) return "";
+  if (c.tone === "warn") return chalk.yellow(` [${c.label.toLowerCase()}]`);
+  if (c.tone === "bad") return chalk.red(` [${c.label.toLowerCase()}]`);
+  return chalk.dim(` [${c.label}]`);
+}
+
+// `formatRoas` returns chalk-styled text — those ANSI escapes are zero-width
+// visually but inflate `.length`, so we pad on the unstyled width and append
+// the styled value. Same trick for the status badge.
+function padRight(s: string, width: number): string {
+  return s.length >= width ? s : s + " ".repeat(width - s.length);
+}
+function padLeftStyled(visible: string, styled: string, width: number): string {
+  const pad = Math.max(width - visible.length, 0);
+  return " ".repeat(pad) + styled;
+}
+
+function nameCell(row: AdsRow, width: number): string {
+  const display = (row.name ?? row.id).slice(0, width);
+  const badge = statusBadge(row.status);
+  // Pad to (width + 1) so badge sits one space off the name, regardless of length.
+  return padRight(display, width) + badge;
+}
+
 function renderTable(rows: AdsRow[], nameHeader: string): string {
   if (rows.length === 0) return chalk.dim("  No data");
+  const showSpend = rows.some((r) => r.total_spend_usd != null);
   const lines: string[] = [];
-  lines.push(
-    chalk.bold(
-      nameHeader.padEnd(32) +
-        "Users".padStart(8) +
-        "Paying".padStart(8) +
-        "Revenue".padStart(14) +
-        "ARPU".padStart(10),
-    ),
-  );
-  lines.push("─".repeat(72));
+  const header =
+    nameHeader.padEnd(40) +
+    "Users".padStart(8) +
+    "Paying".padStart(8) +
+    "Revenue".padStart(14) +
+    "ARPU".padStart(10) +
+    (showSpend ? "Spend".padStart(12) + "ROAS".padStart(8) : "");
+  lines.push(chalk.bold(header));
+  lines.push("─".repeat(header.length));
   for (const r of rows) {
-    const name = (r.name ?? r.id).slice(0, 32);
-    lines.push(
-      name.padEnd(32) +
-        r.user_count.toLocaleString().padStart(8) +
-        r.paying_user_count.toLocaleString().padStart(8) +
-        formatUsd(r.total_revenue_usd).padStart(14) +
-        formatUsd(r.arpu).padStart(10),
-    );
+    let line =
+      nameCell(r, 32).padEnd(40) +
+      r.user_count.toLocaleString().padStart(8) +
+      r.paying_user_count.toLocaleString().padStart(8) +
+      formatUsd(r.total_revenue_usd).padStart(14) +
+      formatUsd(r.arpu).padStart(10);
+    if (showSpend) {
+      line += formatSpend(r.total_spend_usd).padStart(12);
+      line += padLeftStyled(formatRoasLabel(r.roas), formatRoas(r.roas), 8);
+    }
+    lines.push(line);
   }
   return lines.join("\n");
 }
 
 function renderTeamTable(rows: TeamAdsRow[]): string {
   if (rows.length === 0) return chalk.dim("  No data");
+  const showSpend = rows.some((r) => r.total_spend_usd != null);
   const lines: string[] = [];
-  lines.push(
-    chalk.bold(
-      "Project".padEnd(20) +
-        "Campaign".padEnd(28) +
-        "Users".padStart(8) +
-        "Paying".padStart(8) +
-        "Revenue".padStart(14) +
-        "ARPU".padStart(10),
-    ),
-  );
-  lines.push("─".repeat(88));
+  const header =
+    "Project".padEnd(20) +
+    "Campaign".padEnd(36) +
+    "Users".padStart(8) +
+    "Paying".padStart(8) +
+    "Revenue".padStart(14) +
+    "ARPU".padStart(10) +
+    (showSpend ? "Spend".padStart(12) + "ROAS".padStart(8) : "");
+  lines.push(chalk.bold(header));
+  lines.push("─".repeat(header.length));
   for (const r of rows) {
     const project = (r.project_id ?? "").slice(0, 20);
-    const name = (r.name ?? r.id).slice(0, 28);
-    lines.push(
+    let line =
       project.padEnd(20) +
-        name.padEnd(28) +
-        r.user_count.toLocaleString().padStart(8) +
-        r.paying_user_count.toLocaleString().padStart(8) +
-        formatUsd(r.total_revenue_usd).padStart(14) +
-        formatUsd(r.arpu).padStart(10),
-    );
+      nameCell(r, 28).padEnd(36) +
+      r.user_count.toLocaleString().padStart(8) +
+      r.paying_user_count.toLocaleString().padStart(8) +
+      formatUsd(r.total_revenue_usd).padStart(14) +
+      formatUsd(r.arpu).padStart(10);
+    if (showSpend) {
+      line += formatSpend(r.total_spend_usd).padStart(12);
+      line += padLeftStyled(formatRoasLabel(r.roas), formatRoas(r.roas), 8);
+    }
+    lines.push(line);
   }
   return lines.join("\n");
 }
@@ -119,13 +174,20 @@ adsCommand
             chalk.dim(
               `  ${result.total_user_count.toLocaleString()} attributed users · ` +
                 `${result.total_paying_user_count.toLocaleString()} paying · ` +
-                formatUsd(result.total_revenue_usd) + " lifetime",
+                formatUsd(result.total_revenue_usd) + " lifetime revenue" +
+                (result.total_spend_usd != null
+                  ? ` · ${formatUsd(result.total_spend_usd)} spend (ROAS ${formatRoas(result.total_spend_usd > 0 ? result.total_revenue_usd / result.total_spend_usd : null)})`
+                  : ""),
             ),
           ];
+          if (result.currency_warning) {
+            lines.push(chalk.yellow(`  ⚠ Spend reported in ${result.currency_warning}; ROAS unavailable.`));
+          }
           if (result.revenue_synced_at) {
-            lines.push(
-              chalk.dim(`  Revenue last synced: ${new Date(result.revenue_synced_at).toLocaleString()}`),
-            );
+            lines.push(chalk.dim(`  Revenue synced: ${new Date(result.revenue_synced_at).toLocaleString()}`));
+          }
+          if (result.ad_metrics_synced_at) {
+            lines.push(chalk.dim(`  Spend synced: ${new Date(result.ad_metrics_synced_at).toLocaleString()}`));
           }
           lines.push("", chalk.bold("Campaigns"), renderTeamTable(result.campaigns));
           return lines.join("\n");
@@ -144,13 +206,20 @@ adsCommand
           chalk.dim(
             `  ${result.total_user_count.toLocaleString()} attributed users · ` +
               `${result.total_paying_user_count.toLocaleString()} paying · ` +
-              formatUsd(result.total_revenue_usd) + " lifetime",
+              formatUsd(result.total_revenue_usd) + " lifetime revenue" +
+              (result.total_spend_usd != null
+                ? ` · ${formatUsd(result.total_spend_usd)} spend (ROAS ${formatRoas(result.total_spend_usd > 0 ? result.total_revenue_usd / result.total_spend_usd : null)})`
+                : ""),
           ),
         ];
+        if (result.currency_warning) {
+          lines.push(chalk.yellow(`  ⚠ Spend reported in ${result.currency_warning}; ROAS unavailable.`));
+        }
         if (result.revenue_synced_at) {
-          lines.push(
-            chalk.dim(`  Revenue last synced: ${new Date(result.revenue_synced_at).toLocaleString()}`),
-          );
+          lines.push(chalk.dim(`  Revenue synced: ${new Date(result.revenue_synced_at).toLocaleString()}`));
+        }
+        if (result.ad_metrics_synced_at) {
+          lines.push(chalk.dim(`  Spend synced: ${new Date(result.ad_metrics_synced_at).toLocaleString()}`));
         }
         lines.push("", chalk.bold("Campaigns"), renderTable(result.campaigns, "Campaign"));
         return lines.join("\n");
