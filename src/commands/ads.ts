@@ -39,6 +39,13 @@ function formatRoas(roas: number | null): string {
   return ROAS_CHALK[roasTone(roas)](formatRoasLabel(roas));
 }
 
+function windowDaysLabel(days: number | null | undefined): string | null {
+  if (!days) return null;
+  if (days % 30 === 0 && days >= 60) return `Last ${days / 30} months`;
+  if (days % 7 === 0 && days < 90) return `Last ${days / 7} weeks`;
+  return `Last ${days} days`;
+}
+
 function statusBadge(status: string | null): string {
   const c = classifyAdStatus(status);
   if (!c) return "";
@@ -127,12 +134,12 @@ function renderTeamTable(rows: TeamAdsRow[]): string {
 }
 
 export const adsCommand = new Command("ads")
-  .description("Advertising insights — campaigns ranked by lifetime revenue");
+  .description("Advertising insights — campaigns ranked by USD revenue. Spend + revenue both scoped to the same trailing 12-month window so ROAS stays comparable.");
 
 adsCommand
   .command("campaigns")
   .description(
-    "List campaigns ranked by lifetime USD revenue. Pass --team-id to aggregate across every project in a team (the dashboard's 'All projects' view).",
+    "List campaigns ranked by USD revenue. Spend + revenue both scoped to the same trailing 12-month window. Pass --team-id to aggregate across every project in a team (the dashboard's 'All projects' view).",
   )
   .option("--project-id <id>", "Project ID (single-project view)")
   .option(
@@ -212,6 +219,10 @@ adsCommand
                 : ""),
           ),
         ];
+        const windowLabel = windowDaysLabel(result.window_days);
+        if (windowLabel) {
+          lines.push(chalk.dim(`  Window: ${windowLabel} (spend + revenue scoped to same trailing window)`));
+        }
         if (result.currency_warning) {
           lines.push(chalk.yellow(`  ⚠ Spend reported in ${result.currency_warning}; ROAS unavailable.`));
         }
@@ -249,12 +260,12 @@ adsCommand
         limit: opts.limit,
       });
       output(globals.format as OutputFormat, result, () => {
-        const lines = [
-          chalk.bold(result.campaign_name ?? campaignId),
-          "",
-          chalk.bold("Ad groups"),
-          renderTable(result.ad_groups, "Ad group"),
-        ];
+        const lines = [chalk.bold(result.campaign_name ?? campaignId)];
+        const windowLabel = windowDaysLabel(result.window_days);
+        if (windowLabel) {
+          lines.push(chalk.dim(`  ${windowLabel}`));
+        }
+        lines.push("", chalk.bold("Ad groups"), renderTable(result.ad_groups, "Ad group"));
         return lines.join("\n");
       });
     },
@@ -291,13 +302,19 @@ adsCommand
       output(globals.format as OutputFormat, result, () => {
         const lines = [
           chalk.bold(`${result.campaign_name ?? opts.campaignId} → ${result.ad_group_name ?? adGroupId}`),
+        ];
+        const windowLabel = windowDaysLabel(result.window_days);
+        if (windowLabel) {
+          lines.push(chalk.dim(`  ${windowLabel}`));
+        }
+        lines.push(
           "",
           chalk.bold("Keywords"),
           renderTable(result.keywords, "Keyword"),
           "",
           chalk.bold("Ads"),
           renderTable(result.ads, "Ad"),
-        ];
+        );
         return lines.join("\n");
       });
     },
