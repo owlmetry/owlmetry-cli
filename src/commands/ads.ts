@@ -76,10 +76,14 @@ function renderTable(rows: AdsRow[], nameHeader: string): string {
   if (rows.length === 0) return chalk.dim("  No data");
   const showSpend = rows.some((r) => r.total_spend_usd != null);
   const lines: string[] = [];
+  // "Conv." abbreviates "Conversions" (paid_user_count) so the column stays in
+  // the existing 8-char width; "Retained" gets padStart(10) for a visual gap
+  // from the previous column. Full names appear in --json output.
   const header =
     nameHeader.padEnd(40) +
     "Users".padStart(8) +
-    "Paying".padStart(8) +
+    "Conv.".padStart(8) +
+    "Retained".padStart(10) +
     "Revenue".padStart(14) +
     "ARPU".padStart(10) +
     (showSpend ? "Spend".padStart(12) + "ROAS".padStart(8) : "");
@@ -89,7 +93,8 @@ function renderTable(rows: AdsRow[], nameHeader: string): string {
     let line =
       nameCell(r, 32).padEnd(40) +
       r.user_count.toLocaleString().padStart(8) +
-      r.paying_user_count.toLocaleString().padStart(8) +
+      r.paid_user_count.toLocaleString().padStart(8) +
+      r.retained_user_count.toLocaleString().padStart(10) +
       formatUsd(r.total_revenue_usd).padStart(14) +
       formatUsd(r.arpu).padStart(10);
     if (showSpend) {
@@ -109,7 +114,8 @@ function renderTeamTable(rows: TeamAdsRow[]): string {
     "Project".padEnd(20) +
     "Campaign".padEnd(36) +
     "Users".padStart(8) +
-    "Paying".padStart(8) +
+    "Conv.".padStart(8) +
+    "Retained".padStart(10) +
     "Revenue".padStart(14) +
     "ARPU".padStart(10) +
     (showSpend ? "Spend".padStart(12) + "ROAS".padStart(8) : "");
@@ -121,7 +127,8 @@ function renderTeamTable(rows: TeamAdsRow[]): string {
       project.padEnd(20) +
       nameCell(r, 28).padEnd(36) +
       r.user_count.toLocaleString().padStart(8) +
-      r.paying_user_count.toLocaleString().padStart(8) +
+      r.paid_user_count.toLocaleString().padStart(8) +
+      r.retained_user_count.toLocaleString().padStart(10) +
       formatUsd(r.total_revenue_usd).padStart(14) +
       formatUsd(r.arpu).padStart(10);
     if (showSpend) {
@@ -180,7 +187,8 @@ adsCommand
             chalk.bold(`${opts.source} · all projects`),
             chalk.dim(
               `  ${result.total_user_count.toLocaleString()} attributed users · ` +
-                `${result.total_paying_user_count.toLocaleString()} paying · ` +
+                `${result.total_paid_user_count.toLocaleString()} conversions · ` +
+                `${result.total_retained_user_count.toLocaleString()} retained · ` +
                 formatUsd(result.total_revenue_usd) + " lifetime revenue" +
                 (result.total_spend_usd != null
                   ? ` · ${formatUsd(result.total_spend_usd)} spend (ROAS ${formatRoas(result.total_spend_usd > 0 ? result.total_revenue_usd / result.total_spend_usd : null)})`
@@ -212,7 +220,8 @@ adsCommand
           chalk.bold(`${opts.source}`),
           chalk.dim(
             `  ${result.total_user_count.toLocaleString()} attributed users · ` +
-              `${result.total_paying_user_count.toLocaleString()} paying · ` +
+              `${result.total_paid_user_count.toLocaleString()} conversions · ` +
+              `${result.total_retained_user_count.toLocaleString()} retained · ` +
               formatUsd(result.total_revenue_usd) + " lifetime revenue" +
               (result.total_spend_usd != null
                 ? ` · ${formatUsd(result.total_spend_usd)} spend (ROAS ${formatRoas(result.total_spend_usd > 0 ? result.total_revenue_usd / result.total_spend_usd : null)})`
