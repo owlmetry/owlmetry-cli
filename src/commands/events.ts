@@ -1,4 +1,4 @@
-import { Command, Option } from "commander";
+import { Command, Option, InvalidArgumentError } from "commander";
 import { LOG_LEVELS } from "../shared/index.js";
 import { createClient } from "../config.js";
 import { output, type OutputFormat } from "../formatters/index.js";
@@ -7,6 +7,24 @@ import { formatEventsLog } from "../formatters/log.js";
 import { parsePositiveInt } from "../utils/parse.js";
 import { paginationHint } from "../utils/pagination.js";
 
+// Accept a single level (`info`) or comma-separated list (`info,warn`).
+// Validates each part against LOG_LEVELS and returns the canonical comma-
+// separated string for forwarding to the API.
+function parseLevels(raw: string): string {
+  const parts = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  const valid = LOG_LEVELS as unknown as readonly string[];
+  const invalid = parts.filter((p) => !valid.includes(p));
+  if (invalid.length > 0) {
+    throw new InvalidArgumentError(
+      `Unknown level(s): ${invalid.join(", ")}. Allowed: ${valid.join(", ")}`,
+    );
+  }
+  return parts.join(",");
+}
+
 export const eventsCommand = new Command("events")
   .description("Query events")
   .option("--project-id <id>", "Filter by project ID")
@@ -14,8 +32,10 @@ export const eventsCommand = new Command("events")
   .option("--since <time>", "Start time (e.g. 1h, 30m, 7d, or ISO 8601)")
   .option("--until <time>", "End time")
   .addOption(
-    new Option("--level <level>", "Filter by log level")
-      .choices(LOG_LEVELS as unknown as string[]),
+    new Option(
+      "--level <levels>",
+      `Filter by log level. Single (info) or comma-separated (info,warn,error). Allowed: ${LOG_LEVELS.join(", ")}`,
+    ).argParser(parseLevels),
   )
   .option("--user-id <id>", "Filter by user ID")
   .option("--session-id <id>", "Filter by session ID")
