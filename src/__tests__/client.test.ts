@@ -426,7 +426,6 @@ describe("queryFunnel", () => {
       app_id: "a-1",
       app_version: "1.0.0",
       environment: "ios",
-      experiment: "exp:variant-a",
       mode: "closed",
       group_by: "environment",
       data_mode: "production",

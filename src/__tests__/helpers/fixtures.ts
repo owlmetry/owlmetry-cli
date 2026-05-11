@@ -46,7 +46,6 @@ export const EVENT: StoredEventResponse = {
   device_model: "iPhone 16",
   locale: "en_US",
   is_dev: false,
-  experiments: null,
   timestamp: "2025-01-15T12:00:00.000Z",
   received_at: "2025-01-15T12:00:01.000Z",
 };

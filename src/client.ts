@@ -284,7 +284,6 @@ export class OwlmetryClient {
       app_id: params.app_id,
       app_version: params.app_version,
       environment: params.environment,
-      experiment: params.experiment,
       mode: params.mode,
       group_by: params.group_by,
       data_mode: params.data_mode,

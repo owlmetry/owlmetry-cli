@@ -207,8 +207,7 @@ funnelsCommand
   .option("--closed", "Use closed (sequential) mode. Users must complete each step in order.")
   .option("--app-version <version>", "Filter by app version")
   .option("--environment <env>", "Filter by environment (ios, ipados, macos, android, web, backend)")
-  .option("--experiment <name:variant>", "Filter by experiment (format: name:variant)")
-  .option("--group-by <field>", "Group by: environment, app_version, or experiment:<name>")
+  .option("--group-by <field>", "Group by: environment or app_version")
   .addOption(
     new Option("--data-mode <mode>", "Data mode: production, development, or all")
       .choices(["production", "development", "all"])
@@ -221,7 +220,6 @@ funnelsCommand
     closed?: boolean;
     appVersion?: string;
     environment?: string;
-    experiment?: string;
     groupBy?: string;
     dataMode: string;
   }, cmd) => {
@@ -232,7 +230,6 @@ funnelsCommand
       mode: opts.closed ? "closed" : "open",
       app_version: opts.appVersion,
       environment: opts.environment,
-      experiment: opts.experiment,
       group_by: opts.groupBy,
       data_mode: opts.dataMode as any,
     });
