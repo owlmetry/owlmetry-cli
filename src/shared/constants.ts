@@ -20,8 +20,15 @@ export const MAX_EVENT_MESSAGE_LENGTH = 2000;
 export const DEFAULT_PAGE_SIZE = 50;
 export const MAX_PAGE_SIZE = 200;
 
+// Per-key length overrides for trusted SDK-reserved attribute keys (always
+// underscore-prefixed). Stack traces don't fit in 200 chars; other reserved
+// keys stay at the default cap.
+export const RESERVED_ATTRIBUTE_VALUE_LENGTH_OVERRIDES: Readonly<Record<string, number>> = {
+  _error_stack: 16000,
+};
+
 export const APP_PLATFORMS = ["apple", "android", "web", "backend"] as const;
-export const ENVIRONMENTS = ["ios", "ipados", "macos", "android", "web", "backend"] as const;
+export const ENVIRONMENTS = ["ios", "ipados", "macos", "watchos", "android", "web", "backend"] as const;
 
 /**
  * Platforms a registered push device (`user_devices.platform`) can be on. The
@@ -37,7 +44,7 @@ export const ALLOWED_ENVIRONMENTS_FOR_PLATFORM: Record<
   (typeof APP_PLATFORMS)[number],
   readonly (typeof ENVIRONMENTS)[number][]
 > = {
-  apple: ["ios", "ipados", "macos"],
+  apple: ["ios", "ipados", "macos", "watchos"],
   android: ["android"],
   web: ["web"],
   backend: ["backend"],

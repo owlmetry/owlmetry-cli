@@ -7,7 +7,7 @@ export type LogLevel =
   | "error";
 
 export type AppPlatform = "apple" | "android" | "web" | "backend";
-export type Environment = "ios" | "ipados" | "macos" | "android" | "web" | "backend";
+export type Environment = "ios" | "ipados" | "macos" | "watchos" | "android" | "web" | "backend";
 
 // SDK-emitted event message names + their custom_attributes keys. Mirrored by
 // the Swift SDK's URLSessionInstrumentation. Server consumers (notably issue
@@ -15,6 +15,30 @@ export type Environment = "ios" | "ipados" | "macos" | "android" | "web" | "back
 export const NETWORK_REQUEST_MESSAGE = "sdk:network_request";
 export const HTTP_URL_ATTRIBUTE = "_http_url";
 export const HTTP_METHOD_ATTRIBUTE = "_http_method";
+
+// Error/exception extraction attributes. SDKs that accept an Error/Exception
+// object (Owl.error(error)) extract structured data into these reserved keys.
+// _error_type also acts as the issue-fingerprint discriminator so two error
+// classes with identical messages stay on separate issues.
+export const ERROR_TYPE_ATTRIBUTE = "_error_type";
+export const ERROR_STACK_ATTRIBUTE = "_error_stack";
+export const ERROR_CODE_ATTRIBUTE = "_error_code";
+export const ERROR_DOMAIN_ATTRIBUTE = "_error_domain";
+export const ERROR_ERRNO_ATTRIBUTE = "_error_errno";
+export const ERROR_SYSCALL_ATTRIBUTE = "_error_syscall";
+export const ERROR_PATH_ATTRIBUTE = "_error_path";
+export const ERROR_AGGREGATE_COUNT_ATTRIBUTE = "_error_aggregate_count";
+export const ERROR_AGGREGATE_FIRST_TYPE_ATTRIBUTE = "_error_aggregate_first_type";
+export const ERROR_AGGREGATE_FIRST_MESSAGE_ATTRIBUTE = "_error_aggregate_first_message";
+export const UNHANDLED_ATTRIBUTE = "_unhandled";
+
+export const ERROR_CAUSE_MAX_DEPTH = 5;
+export function errorCauseTypeKey(depth: number): string {
+  return `_error_cause_${depth}_type`;
+}
+export function errorCauseMessageKey(depth: number): string {
+  return `_error_cause_${depth}_message`;
+}
 
 export interface IngestEventPayload {
   client_event_id?: string;
