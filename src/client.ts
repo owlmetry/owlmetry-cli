@@ -37,6 +37,20 @@ import type {
   FeedbackCommentResponse,
   UpdateFeedbackRequest,
   CreateFeedbackCommentRequest,
+  QuestionnaireQueryParams,
+  QuestionnaireListResponse,
+  QuestionnaireDetailResponse,
+  QuestionnaireSpec,
+  CreateQuestionnaireRequest,
+  UpdateQuestionnaireRequest,
+  QuestionnaireResponseQueryParams,
+  QuestionnaireResponsesListResponse,
+  QuestionnaireResponseDetailResponse,
+  QuestionnaireResponseRecord,
+  QuestionnaireResponseComment,
+  UpdateQuestionnaireResponseRequest,
+  CreateQuestionnaireResponseCommentRequest,
+  QuestionnaireAnalyticsResponse,
   ReviewResponse,
   ReviewsListResponse,
   ReviewsQueryParams,
@@ -425,6 +439,50 @@ export class OwlmetryClient {
 
   async addFeedbackComment(projectId: string, feedbackId: string, body: CreateFeedbackCommentRequest): Promise<FeedbackCommentResponse> {
     return this.request<FeedbackCommentResponse>("POST", `/v1/projects/${projectId}/feedback/${feedbackId}/comments`, { body });
+  }
+
+  // Questionnaires
+  async listQuestionnaires(projectId: string, params: Partial<QuestionnaireQueryParams> = {}): Promise<QuestionnaireListResponse> {
+    return this.request<QuestionnaireListResponse>("GET", `/v1/projects/${projectId}/questionnaires`, { params: params as Record<string, string> });
+  }
+
+  async getQuestionnaire(projectId: string, questionnaireId: string): Promise<QuestionnaireDetailResponse> {
+    return this.request<QuestionnaireDetailResponse>("GET", `/v1/projects/${projectId}/questionnaires/${questionnaireId}`);
+  }
+
+  async createQuestionnaire(projectId: string, body: CreateQuestionnaireRequest): Promise<QuestionnaireSpec> {
+    return this.request<QuestionnaireSpec>("POST", `/v1/projects/${projectId}/questionnaires`, { body });
+  }
+
+  async updateQuestionnaire(projectId: string, questionnaireId: string, body: UpdateQuestionnaireRequest): Promise<QuestionnaireSpec> {
+    return this.request<QuestionnaireSpec>("PATCH", `/v1/projects/${projectId}/questionnaires/${questionnaireId}`, { body });
+  }
+
+  async deleteQuestionnaire(projectId: string, questionnaireId: string): Promise<{ deleted: boolean }> {
+    return this.request<{ deleted: boolean }>("DELETE", `/v1/projects/${projectId}/questionnaires/${questionnaireId}`);
+  }
+
+  async listQuestionnaireResponses(projectId: string, questionnaireId: string, params: Partial<QuestionnaireResponseQueryParams> = {}): Promise<QuestionnaireResponsesListResponse> {
+    return this.request<QuestionnaireResponsesListResponse>("GET", `/v1/projects/${projectId}/questionnaires/${questionnaireId}/responses`, { params: params as Record<string, string> });
+  }
+
+  async getQuestionnaireResponse(projectId: string, questionnaireId: string, responseId: string): Promise<QuestionnaireResponseDetailResponse> {
+    return this.request<QuestionnaireResponseDetailResponse>("GET", `/v1/projects/${projectId}/questionnaires/${questionnaireId}/responses/${responseId}`);
+  }
+
+  async updateQuestionnaireResponseStatus(projectId: string, questionnaireId: string, responseId: string, body: UpdateQuestionnaireResponseRequest): Promise<QuestionnaireResponseRecord> {
+    return this.request<QuestionnaireResponseRecord>("PATCH", `/v1/projects/${projectId}/questionnaires/${questionnaireId}/responses/${responseId}`, { body });
+  }
+
+  async addQuestionnaireResponseComment(projectId: string, questionnaireId: string, responseId: string, body: CreateQuestionnaireResponseCommentRequest): Promise<QuestionnaireResponseComment> {
+    return this.request<QuestionnaireResponseComment>("POST", `/v1/projects/${projectId}/questionnaires/${questionnaireId}/responses/${responseId}/comments`, { body });
+  }
+
+  async getQuestionnaireAnalytics(projectId: string, questionnaireId: string, params: { is_dev?: boolean; data_mode?: string } = {}): Promise<QuestionnaireAnalyticsResponse> {
+    const stringParams: Record<string, string> = {};
+    if (params.is_dev !== undefined) stringParams.is_dev = String(params.is_dev);
+    if (params.data_mode) stringParams.data_mode = params.data_mode;
+    return this.request<QuestionnaireAnalyticsResponse>("GET", `/v1/projects/${projectId}/questionnaires/${questionnaireId}/analytics`, { params: stringParams });
   }
 
   // Store reviews (App Store / Play Store)
